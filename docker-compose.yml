@@ -1,0 +1,10 @@
+services:
+  nginx:
+    image: crestfallmax/nginx-proxy-connect-stable-alpine:latest
+    network_mode: host
+    volumes:
+      - "./nginx.conf:/etc/nginx/nginx.conf"
+      - "./ssl:/etc/nginx/ssl"
+      - "./logs:/var/log/nginx"
+      - "./auth:/usr/share/nginx/auth"
+    restart: always

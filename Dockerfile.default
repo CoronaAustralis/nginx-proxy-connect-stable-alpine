@@ -14,19 +14,7 @@ ENV NGINX_VERSION 1.20.1
 
 # nginx layer
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/repositories \
-	&& addgroup -S nginx \
-	&& adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx \
-	&& apk add --no-cache --update --virtual .build-deps gcc libc-dev make openssl-dev pcre-dev zlib-dev bash linux-headers patch curl git \
-	&&  git clone https://github.com/openresty/luajit2.git --depth 1 /usr/src/lua  \
-	&& cd /usr/src/lua && make && make install \
-	&& git clone https://github.com/vision5/ngx_devel_kit.git --depth 1 /usr/src/ngx_devel_kit \
-	&& cd /usr/src/ngx_devel_kit && export ngx_devel_kit="$(pwd)" && cd - \
-	&& git clone https://github.com/openresty/lua-nginx-module.git --depth 1 /usr/src/lua_nginx_module \
-	&& cd /usr/src/lua_nginx_module && export lua_nginx_module="$(pwd)" && cd - \
-	&& export LUAJIT_LIB=/usr/local/lib \
-	&& export LUAJIT_INC=/usr/local/include/luajit-2.1 \
-	&& curl -fSL https://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
-	&& export CONFIG="\
+	&& CONFIG="\
 	--prefix=/etc/nginx \
 	--sbin-path=/usr/sbin/nginx \
 	--modules-path=/usr/lib/nginx/modules \
@@ -62,9 +50,13 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/re
 	--with-file-aio \
 	--with-http_v2_module \
 	" \
+	&& addgroup -S nginx \
+	&& adduser -D -S -h /var/cache/nginx -s /sbin/nologin -G nginx nginx \
+	&& apk add --no-cache --update --virtual .build-deps gcc libc-dev make openssl-dev pcre-dev zlib-dev linux-headers patch curl git  \
+	&& curl -fSL https://nginx.org/download/nginx-$NGINX_VERSION.tar.gz -o nginx.tar.gz \
 	&& git clone https://github.com/chobits/ngx_http_proxy_connect_module.git /usr/src/ngx_http_proxy_connect_module \
 	&& cd /usr/src/ngx_http_proxy_connect_module && export PROXY_CONNECT_MODULE_PATH="$(pwd)" && cd - \
-	&& CONFIG="$CONFIG --add-module=$ngx_devel_kit --add-module=$lua_nginx_module --add-module=$PROXY_CONNECT_MODULE_PATH" \
+	&& CONFIG="$CONFIG --add-module=$PROXY_CONNECT_MODULE_PATH" \
 	&& mkdir -p /usr/src \
 	&& tar -zxC /usr/src -f nginx.tar.gz \
 	&& rm nginx.tar.gz \
@@ -73,10 +65,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/re
 	# && [ "a$DO_DEBUG_BUILD" == "a1" ] && { echo "Bulding DEBUG" &&  ./configure $CONFIG --with-debug && make -j$(getconf _NPROCESSORS_ONLN) && mv objs/nginx objs/nginx-debug ; } || { echo "Not building debug"; } \
 	&& { echo "Bulding RELEASE" && ./configure $CONFIG  && make -j$(getconf _NPROCESSORS_ONLN) && make install; } \
 	&& ls -laR objs/addon/ngx_http_proxy_connect_module/ \
-	&& git clone https://github.com/openresty/lua-resty-core.git /usr/src/lua/lua-resty-core  \
-	&& cd /usr/src/lua/lua-resty-core && make install LUA_LIB_DIR=/usr/local/share/lua/5.1 PREFIX=/etc/nginx \
-	&& git clone https://github.com/openresty/lua-resty-lrucache.git /usr/src/lua/lua-resty-lrucache  \
-	&& cd /usr/src/lua/lua-resty-lrucache && make install LUA_LIB_DIR=/usr/local/share/lua/5.1 PREFIX=/etc/nginx \
+	&& rm -rf /etc/nginx/html/ \
 	&& mkdir /etc/nginx/conf.d/ \
 	&& mkdir -p /usr/share/nginx/html/ \
 	&& install -m644 html/index.html /usr/share/nginx/html/ \
@@ -88,7 +77,7 @@ RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apk/re
 	&& rm -rf /usr/src/nginx-$NGINX_VERSION \
 	\
 	# Remove -dev apks and sources
-	&& apk del .build-deps gcc libc-dev make openssl-dev pcre-dev zlib-dev linux-headers patch curl git bash && rm -rf /usr/src && apk add --no-cache libgcc\
+	&& apk del .build-deps gcc libc-dev make openssl-dev pcre-dev zlib-dev linux-headers patch curl git && rm -rf /usr/src \
 	\
 	# forward request and error logs to docker log collector
 	&& ln -sf /dev/stdout /var/log/nginx/access.log \
@@ -106,9 +95,4 @@ EXPOSE 80
 
 STOPSIGNAL SIGTERM
 
-ENV LUAJIT_LIB=/usr/local/lib
-ENV LUAJIT_INC=/usr/local/include/luajit-2.1
-
 CMD ["nginx", "-g", "daemon off;"]
-
-# CONFIG="$CONFIG --add-module=$ngx_devel_kit --add-module=$lua_nginx_module  --add-module=$PROXY_CONNECT_MODULE_PATH"
